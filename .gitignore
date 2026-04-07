@@ -1,36 +1,47 @@
-# Virtual environment
-venv/
-.venv/
-env/
+# ==============================
+# Python .gitignore
+# For: 5th-April-Bug-Fixing-project
+# ==============================
 
-# Python cache
+# ----- Python bytecode and cache -----
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 
-# Distribution / packaging
+# ----- Virtual environments -----
+venv/
+.venv/
+env/
+
+# ----- Environment variables -----
+# Exclude .env (contains secrets/credentials)
+# Do NOT exclude .env.example (template for documentation)
+.env
+
+# ----- pytest cache and coverage -----
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.cover
+
+# ----- IDE and editor files -----
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ----- OS generated files -----
+.DS_Store
+Thumbs.db
+
+# ----- Distribution and packaging -----
 dist/
 build/
 *.egg-info/
 *.egg
 
-# Environment variables
-.env
-
-# pytest
-.pytest_cache/
-htmlcov/
-.coverage
-coverage.xml
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
+# ----- Miscellaneous -----
+*.log
