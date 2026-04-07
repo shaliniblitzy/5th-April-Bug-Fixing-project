@@ -25,10 +25,8 @@ Markers:
     selective execution (e.g., ``pytest -m project``).
 
 Fixtures Used (from ``tests/conftest.py`` — auto-discovered by pytest):
-    api_client:
-        Session-scoped ``BlitzyAPIClient`` with auth headers and base URL.
-    project_id:
-        Target project identifier string from configuration.
+    project_response:
+        Session-scoped cached response from the ``GET /project`` endpoint.
 """
 
 import pytest
@@ -39,7 +37,6 @@ from src.validators import (
     validate_percent_value,
     validate_percent_complete_in_response,
 )
-from src.api_client import BlitzyAPIClient
 from src.models import ProjectResponse, InlineMeteringData
 
 
@@ -72,11 +69,7 @@ class TestProjectHasMeteringData:
     are made.
     """
 
-    def test_project_has_metering_data(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_project_has_metering_data(self, project_response) -> None:
         """Assert that the project response contains a metering data section.
 
         Issues ``GET /project?id=<project_id>`` and checks that at least one
@@ -86,10 +79,10 @@ class TestProjectHasMeteringData:
         test passes.
 
         Args:
-            api_client: Configured HTTP client fixture.
-            project_id: Target project identifier fixture.
+            project_response: Session-scoped cached response from
+                the ``GET /project`` endpoint fixture.
         """
-        response: dict = api_client.get_project(project_id)
+        response = project_response
 
         assert response is not None, (
             "Project response is None — the API returned no data"
@@ -137,11 +130,7 @@ class TestProjectHasMeteringData:
                 )
                 break
 
-    def test_project_response_is_valid_json(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_project_response_is_valid_json(self, project_response) -> None:
         """Assert that the project response is a valid, non-empty JSON object.
 
         Verifies the response from ``GET /project?id=<project_id>`` is not
@@ -149,10 +138,10 @@ class TestProjectHasMeteringData:
         parsed into a :class:`~src.models.ProjectResponse` Pydantic model.
 
         Args:
-            api_client: Configured HTTP client fixture.
-            project_id: Target project identifier fixture.
+            project_response: Session-scoped cached response from
+                the ``GET /project`` endpoint fixture.
         """
-        response = api_client.get_project(project_id)
+        response = project_response
 
         assert response is not None, (
             "GET /project returned None — expected a JSON object"
@@ -183,21 +172,17 @@ class TestProjectPercentCompletePresent:
     constitutes a bug.
     """
 
-    def test_project_percent_complete_present(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_project_percent_complete_present(self, project_response) -> None:
         """Assert that the percent_complete field exists within nested metering data.
 
         Uses :func:`find_percent_field_nested` to search the entire project
         response (top level and nested metering sub-keys) for the field.
 
         Args:
-            api_client: Configured HTTP client fixture.
-            project_id: Target project identifier fixture.
+            project_response: Session-scoped cached response from
+                the ``GET /project`` endpoint fixture.
         """
-        response: dict = api_client.get_project(project_id)
+        response = project_response
 
         field_name, _field_value, _nested_path = find_percent_field_nested(
             response
@@ -209,11 +194,7 @@ class TestProjectPercentCompletePresent:
             f"Response keys: {list(response.keys()) if isinstance(response, dict) else 'N/A'}"
         )
 
-    def test_project_percent_complete_key_detected(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_project_percent_complete_key_detected(self, project_response) -> None:
         """Assert that the detected field name is a recognised naming convention.
 
         Navigates to the metering section of the project response and verifies
@@ -223,10 +204,10 @@ class TestProjectPercentCompletePresent:
         endpoint uses.
 
         Args:
-            api_client: Configured HTTP client fixture.
-            project_id: Target project identifier fixture.
+            project_response: Session-scoped cached response from
+                the ``GET /project`` endpoint fixture.
         """
-        response: dict = api_client.get_project(project_id)
+        response = project_response
 
         # First, try to locate the metering section and search within it.
         metering_section: dict | None = None
@@ -266,11 +247,7 @@ class TestProjectPercentCompleteValid:
     - ``None`` when metering data is not applicable.
     """
 
-    def test_project_percent_complete_valid(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_project_percent_complete_valid(self, project_response) -> None:
         """End-to-end validation of the percent_complete field in the project response.
 
         Delegates to :func:`validate_percent_complete_in_response` which
@@ -278,10 +255,10 @@ class TestProjectPercentCompleteValid:
         in a single call.
 
         Args:
-            api_client: Configured HTTP client fixture.
-            project_id: Target project identifier fixture.
+            project_response: Session-scoped cached response from
+                the ``GET /project`` endpoint fixture.
         """
-        response: dict = api_client.get_project(project_id)
+        response = project_response
 
         is_valid, error_message = validate_percent_complete_in_response(
             response, "project"
@@ -292,21 +269,17 @@ class TestProjectPercentCompleteValid:
             f"{error_message}"
         )
 
-    def test_project_percent_complete_type_is_numeric_or_null(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_project_percent_complete_type_is_numeric_or_null(self, project_response) -> None:
         """Assert that the percent_complete value is numeric (int/float) or None.
 
         Boolean values are explicitly rejected even though ``bool`` is a
         subclass of ``int`` in Python.
 
         Args:
-            api_client: Configured HTTP client fixture.
-            project_id: Target project identifier fixture.
+            project_response: Session-scoped cached response from
+                the ``GET /project`` endpoint fixture.
         """
-        response: dict = api_client.get_project(project_id)
+        response = project_response
 
         field_name, field_value, _nested_path = find_percent_field_nested(
             response
@@ -328,21 +301,17 @@ class TestProjectPercentCompleteValid:
             f"got {type(field_value).__name__}: {field_value!r}"
         )
 
-    def test_project_percent_complete_in_range(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_project_percent_complete_in_range(self, project_response) -> None:
         """Assert that a numeric percent_complete value is within [0.0, 100.0].
 
         If the value is ``None`` (no applicable data), the test passes without
         range assertions.
 
         Args:
-            api_client: Configured HTTP client fixture.
-            project_id: Target project identifier fixture.
+            project_response: Session-scoped cached response from
+                the ``GET /project`` endpoint fixture.
         """
-        response: dict = api_client.get_project(project_id)
+        response = project_response
 
         field_name, field_value, _nested_path = find_percent_field_nested(
             response
@@ -385,11 +354,7 @@ class TestProjectMeteringScenarios:
     - **No applicable data**: ``None`` (null) — the field is still present.
     """
 
-    def test_project_completed_run_metering(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_project_completed_run_metering(self, project_response) -> None:
         """Verify that a completed run has a valid percent_complete value.
 
         Fetches the project response and extracts the ``percent_complete``
@@ -398,10 +363,10 @@ class TestProjectMeteringScenarios:
         within the valid range ``[0.0, 100.0]``.
 
         Args:
-            api_client: Configured HTTP client fixture.
-            project_id: Target project identifier fixture.
+            project_response: Session-scoped cached response from
+                the ``GET /project`` endpoint fixture.
         """
-        response: dict = api_client.get_project(project_id)
+        response = project_response
 
         field_name, field_value, _nested_path = find_percent_field_nested(
             response
@@ -434,11 +399,7 @@ class TestProjectMeteringScenarios:
             f"valid range [0.0, 100.0]"
         )
 
-    def test_project_no_data_scenario(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_project_no_data_scenario(self, project_response) -> None:
         """Verify the no-data scenario: field is present with a null value.
 
         When metering data is not applicable, the ``percent_complete`` field
@@ -449,10 +410,10 @@ class TestProjectMeteringScenarios:
         (the completed-run scenario is tested separately).
 
         Args:
-            api_client: Configured HTTP client fixture.
-            project_id: Target project identifier fixture.
+            project_response: Session-scoped cached response from
+                the ``GET /project`` endpoint fixture.
         """
-        response: dict = api_client.get_project(project_id)
+        response = project_response
 
         field_name, field_value, nested_path = find_percent_field_nested(
             response

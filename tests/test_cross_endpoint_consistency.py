@@ -40,7 +40,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 
-from src.api_client import BlitzyAPIClient
 from src.validators import (
     check_field_consistency,
     find_percent_field,
@@ -103,15 +102,16 @@ def _extract_first_record(response_data: Any) -> Optional[Dict[str, Any]]:
 class TestFieldNameConsistency:
     """Verify that the percent_complete field name is identical across all endpoints.
 
-    These are integration tests that issue real GET requests via the
-    ``api_client`` and ``project_id`` fixtures provided by
-    ``tests/conftest.py``.
+    These are integration tests that use session-scoped response fixtures
+    (``metering_response``, ``current_metering_response``, ``project_response``)
+    provided by ``tests/conftest.py``.
     """
 
     def test_field_name_consistency(
         self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
+        metering_response,
+        current_metering_response,
+        project_response,
     ) -> None:
         """Assert that all three endpoints use the **same** naming convention.
 
@@ -124,16 +124,9 @@ class TestFieldNameConsistency:
         ``percentComplete`` in another — causes an assertion failure with a
         detailed message identifying each endpoint's convention.
         """
-        # 1. Fetch responses from all three endpoints.
-        runs_metering_response: Any = api_client.get_runs_metering(project_id)
-        current_metering_response: Dict[str, Any] = (
-            api_client.get_runs_metering_current()
-        )
-        project_response: Dict[str, Any] = api_client.get_project(project_id)
-
-        # 2. Normalise /runs/metering — may be a list; extract first record.
+        # 1. Normalise /runs/metering — may be a list; extract first record.
         runs_metering_record: Optional[Dict[str, Any]] = _extract_first_record(
-            runs_metering_response,
+            metering_response,
         )
         assert runs_metering_record is not None, (
             "Cannot verify field naming: /runs/metering returned no records. "
@@ -157,8 +150,9 @@ class TestFieldNameConsistency:
 
     def test_field_present_in_all_endpoints(
         self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
+        metering_response,
+        current_metering_response,
+        project_response,
     ) -> None:
         """Assert that the percent_complete field exists in every endpoint.
 
@@ -166,16 +160,9 @@ class TestFieldNameConsistency:
         even when its value is ``null``.  Absence in any of the three
         endpoint responses is flagged as a bug.
         """
-        # 1. Fetch responses.
-        runs_metering_response: Any = api_client.get_runs_metering(project_id)
-        current_metering_response: Dict[str, Any] = (
-            api_client.get_runs_metering_current()
-        )
-        project_response: Dict[str, Any] = api_client.get_project(project_id)
-
-        # 2. Check /runs/metering — extract a representative record first.
+        # 1. Check /runs/metering — extract a representative record first.
         runs_record: Optional[Dict[str, Any]] = _extract_first_record(
-            runs_metering_response,
+            metering_response,
         )
         assert runs_record is not None, (
             "No metering records returned from /runs/metering"
@@ -214,8 +201,9 @@ class TestSchemaUniformity:
 
     def test_schema_uniformity(
         self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
+        metering_response,
+        current_metering_response,
+        project_response,
     ) -> None:
         """Assert every endpoint's percent_complete value passes domain validation.
 
@@ -232,19 +220,12 @@ class TestSchemaUniformity:
         - A string in one endpoint alongside a number in another indicates
           a schema inconsistency and fails the test.
         """
-        # 1. Fetch responses from all three endpoints.
-        runs_metering_response: Any = api_client.get_runs_metering(project_id)
-        current_metering_response: Dict[str, Any] = (
-            api_client.get_runs_metering_current()
-        )
-        project_response: Dict[str, Any] = api_client.get_project(project_id)
-
-        # 2. Extract the percent_complete value from each endpoint.
+        # 1. Extract the percent_complete value from each endpoint.
         endpoint_values: Dict[str, Tuple[Optional[str], Any]] = {}
 
         # /runs/metering — extract first record.
         runs_record: Optional[Dict[str, Any]] = _extract_first_record(
-            runs_metering_response,
+            metering_response,
         )
         assert runs_record is not None, (
             "No metering records returned from /runs/metering endpoint"
@@ -283,8 +264,9 @@ class TestSchemaUniformity:
 
     def test_value_type_consistency(
         self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
+        metering_response,
+        current_metering_response,
+        project_response,
     ) -> None:
         """Assert that non-null percent_complete values are strictly numeric.
 
@@ -296,17 +278,10 @@ class TestSchemaUniformity:
           in Python, so we check for it first).
         * ``str``, ``list``, ``dict``, and all other types are rejected.
         """
-        # 1. Fetch responses.
-        runs_metering_response: Any = api_client.get_runs_metering(project_id)
-        current_metering_response: Dict[str, Any] = (
-            api_client.get_runs_metering_current()
-        )
-        project_response: Dict[str, Any] = api_client.get_project(project_id)
-
-        # 2. Build a mapping of endpoint → extracted value.
+        # 1. Build a mapping of endpoint → extracted value.
         values_by_endpoint: Dict[str, Any] = {}
 
-        runs_record = _extract_first_record(runs_metering_response)
+        runs_record = _extract_first_record(metering_response)
         if runs_record is not None:
             _fname, value = find_percent_field(runs_record)
             values_by_endpoint["/runs/metering"] = value

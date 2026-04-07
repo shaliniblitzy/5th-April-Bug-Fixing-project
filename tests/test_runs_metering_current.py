@@ -54,42 +54,6 @@ from src.validators import (
 pytestmark = pytest.mark.current_metering
 
 
-# ---------------------------------------------------------------------------
-# Internal helper — fetch & cache the current metering response
-# ---------------------------------------------------------------------------
-
-
-def _fetch_current_response(api_client: BlitzyAPIClient) -> dict:
-    """Fetch the ``/runs/metering/current`` response with graceful error handling.
-
-    Calls :meth:`BlitzyAPIClient.get_runs_metering_current` and returns the
-    parsed JSON dictionary.  If the endpoint is unreachable, returns an HTTP
-    error, or yields an empty / ``None`` response (indicating that no run is
-    currently active), the calling test is skipped via :func:`pytest.skip`
-    rather than failing outright.
-
-    Args:
-        api_client: A configured :class:`BlitzyAPIClient` instance (injected
-            by the session-scoped ``api_client`` fixture from ``conftest.py``).
-
-    Returns:
-        The parsed JSON response body as a ``dict``.
-
-    Raises:
-        pytest.skip: When the endpoint is unavailable or no active run exists.
-    """
-    try:
-        response = api_client.get_runs_metering_current()
-    except Exception as exc:
-        pytest.skip(
-            f"No active run available for current metering test: {exc}"
-        )
-
-    # An empty dict or None response indicates no active run — skip gracefully.
-    if response is None or (isinstance(response, dict) and len(response) == 0):
-        pytest.skip("No active run available for current metering test")
-
-    return response
 
 
 # ===========================================================================
@@ -107,9 +71,7 @@ class TestCurrentPercentCompletePresent:
     accepted.
     """
 
-    def test_current_percent_complete_present(
-        self, api_client: BlitzyAPIClient
-    ) -> None:
+    def test_current_percent_complete_present(self, current_metering_response) -> None:
         """Assert ``percent_complete`` / ``percentComplete`` field exists.
 
         Makes a ``GET /runs/metering/current`` request and uses
@@ -117,22 +79,20 @@ class TestCurrentPercentCompletePresent:
         response dictionary.  If no active run is available the test is
         gracefully skipped.
         """
-        response = _fetch_current_response(api_client)
+        response = current_metering_response
         field_name, _field_value = find_percent_field(response)
         assert field_name is not None, (
             "Field 'percent_complete'/'percentComplete' is missing from "
             "/runs/metering/current response"
         )
 
-    def test_current_response_is_valid(
-        self, api_client: BlitzyAPIClient
-    ) -> None:
+    def test_current_response_is_valid(self, current_metering_response) -> None:
         """Assert the response is a non-``None`` dictionary (valid JSON object).
 
         The ``/runs/metering/current`` endpoint must return a well-formed JSON
         object — not ``null``, not an array, not a scalar.
         """
-        response = _fetch_current_response(api_client)
+        response = current_metering_response
         assert response is not None, (
             "/runs/metering/current response is None"
         )
@@ -158,16 +118,14 @@ class TestCurrentPercentCompleteType:
     Strings, booleans, lists, dicts, and all other types are **invalid**.
     """
 
-    def test_current_percent_complete_type(
-        self, api_client: BlitzyAPIClient
-    ) -> None:
+    def test_current_percent_complete_type(self, current_metering_response) -> None:
         """Validate the field value passes all type and range checks.
 
         Uses :func:`~src.validators.validate_percent_value` to perform
         comprehensive validation (type checking **and** range enforcement)
         in a single call.
         """
-        response = _fetch_current_response(api_client)
+        response = current_metering_response
         field_name, value = find_percent_field(response)
         if field_name is None:
             pytest.skip(
@@ -179,16 +137,14 @@ class TestCurrentPercentCompleteType:
             f"/runs/metering/current: {error_msg}"
         )
 
-    def test_current_percent_complete_is_numeric_or_null(
-        self, api_client: BlitzyAPIClient
-    ) -> None:
+    def test_current_percent_complete_is_numeric_or_null(self, current_metering_response) -> None:
         """Assert value is ``int``, ``float``, or ``None`` — never ``bool``.
 
         Python's ``bool`` is a subclass of ``int``, so a dedicated ``bool``
         check is performed **before** the ``int``/``float`` check to prevent
         ``True`` / ``False`` from being silently accepted.
         """
-        response = _fetch_current_response(api_client)
+        response = current_metering_response
         field_name, value = find_percent_field(response)
         if field_name is None:
             pytest.skip(
@@ -201,15 +157,13 @@ class TestCurrentPercentCompleteType:
             f"metering, got {type(value).__name__}"
         )
 
-    def test_current_percent_complete_not_string(
-        self, api_client: BlitzyAPIClient
-    ) -> None:
+    def test_current_percent_complete_not_string(self, current_metering_response) -> None:
         """Assert the field value is not a string.
 
         A string representation of a number (e.g., ``"75.0"``) is an API
         serialization error and must be caught.
         """
-        response = _fetch_current_response(api_client)
+        response = current_metering_response
         field_name, value = find_percent_field(response)
         if field_name is None:
             pytest.skip(
@@ -238,9 +192,7 @@ class TestInProgressValue:
     A ``None`` value is always acceptable (the "no applicable data" state).
     """
 
-    def test_in_progress_value_under_100(
-        self, api_client: BlitzyAPIClient
-    ) -> None:
+    def test_in_progress_value_under_100(self, current_metering_response) -> None:
         """Assert in-progress ``percent_complete`` is within ``[0.0, 100.0]``.
 
         If the value is ``None`` the test passes (no applicable data).
@@ -249,7 +201,7 @@ class TestInProgressValue:
         emitted because the run may have just completed — this is acceptable
         but noteworthy for diagnostics.
         """
-        response = _fetch_current_response(api_client)
+        response = current_metering_response
         field_name, value = find_percent_field(response)
         if field_name is None:
             pytest.skip(
@@ -276,15 +228,13 @@ class TestInProgressValue:
                 stacklevel=2,
             )
 
-    def test_current_value_in_valid_range(
-        self, api_client: BlitzyAPIClient
-    ) -> None:
+    def test_current_value_in_valid_range(self, current_metering_response) -> None:
         """Assert numeric ``percent_complete`` is within ``[0.0, 100.0]``.
 
         Skips the assertion when the value is ``None`` (null is an acceptable
         state per the value domain specification).
         """
-        response = _fetch_current_response(api_client)
+        response = current_metering_response
         field_name, value = find_percent_field(response)
         if field_name is None:
             pytest.skip(
@@ -297,15 +247,13 @@ class TestInProgressValue:
                 f"range [0.0, 100.0]"
             )
 
-    def test_current_value_not_negative(
-        self, api_client: BlitzyAPIClient
-    ) -> None:
+    def test_current_value_not_negative(self, current_metering_response) -> None:
         """Assert ``percent_complete`` is not negative.
 
         Negative progress percentages are always invalid regardless of run
         state.  The assertion is skipped when the value is ``None``.
         """
-        response = _fetch_current_response(api_client)
+        response = current_metering_response
         field_name, value = find_percent_field(response)
         if field_name is None:
             pytest.skip(
@@ -348,13 +296,11 @@ class TestCurrentMeteringAvailability:
 
         # Reaching this line means the endpoint returned a 2xx status.
         # We perform a trivial assertion to formally record the pass.
-        assert response is not None or response is None, (
+        assert isinstance(response, dict), (
             "GET /runs/metering/current did not return a valid response"
         )
 
-    def test_current_metering_no_active_run(
-        self, api_client: BlitzyAPIClient
-    ) -> None:
+    def test_current_metering_no_active_run(self, current_metering_response) -> None:
         """Validate field presence even when no active run exists.
 
         When no run is in progress, the response may still contain the
@@ -364,7 +310,7 @@ class TestCurrentMeteringAvailability:
         :class:`~src.models.CurrentMeteringResponse` Pydantic model validation
         to confirm schema conformance.
         """
-        response = _fetch_current_response(api_client)
+        response = current_metering_response
 
         # End-to-end validation: field detection + value domain check.
         is_valid, message = validate_percent_complete_in_response(

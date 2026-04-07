@@ -28,7 +28,6 @@ from typing import Any, Dict, List
 
 import pytest
 
-from src.api_client import BlitzyAPIClient
 from src.models import MeteringRecord, parse_metering_response
 from src.validators import (
     find_percent_field,
@@ -99,18 +98,14 @@ class TestPercentCompleteFieldPresent:
     """Verify that ``percent_complete`` / ``percentComplete`` exists in every
     metering record returned by ``GET /runs/metering``."""
 
-    def test_percent_complete_field_present(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_percent_complete_field_present(self, metering_response) -> None:
         """Assert the percent field is present in **every** record.
 
         Iterates over the full record list and checks each element
         individually.  The assertion message includes the failing record
         index for quick triage.
         """
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
         records = _extract_records(response)
 
         assert len(records) > 0, (
@@ -124,17 +119,13 @@ class TestPercentCompleteFieldPresent:
                 f"from metering record at index {i}"
             )
 
-    def test_percent_complete_field_present_in_first_record(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_percent_complete_field_present_in_first_record(self, metering_response) -> None:
         """Quick-check that the first record contains the percent field.
 
         A lighter-weight smoke test that validates the very first record
         independently of the full-sweep test above.
         """
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
         records = _extract_records(response)
 
         assert len(records) > 0, (
@@ -161,11 +152,7 @@ class TestPercentCompleteType:
     and other types are explicitly rejected.
     """
 
-    def test_percent_complete_type(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_percent_complete_type(self, metering_response) -> None:
         """Assert every record's percent value passes full type validation.
 
         Uses :func:`validate_percent_value` which enforces the complete
@@ -173,7 +160,7 @@ class TestPercentCompleteType:
         :func:`validate_percent_complete_in_response` for end-to-end
         validation of each record as a standalone response dict.
         """
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
         records = _extract_records(response)
 
         assert len(records) > 0, (
@@ -203,13 +190,9 @@ class TestPercentCompleteType:
                     f"{msg}"
                 )
 
-    def test_percent_complete_not_string_in_any_record(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_percent_complete_not_string_in_any_record(self, metering_response) -> None:
         """Assert no record has a string-typed percent value."""
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
         records = _extract_records(response)
 
         for i, record in enumerate(records):
@@ -219,18 +202,14 @@ class TestPercentCompleteType:
                     f"percent_complete at index {i} is a string: '{value}'"
                 )
 
-    def test_percent_complete_not_boolean_in_any_record(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_percent_complete_not_boolean_in_any_record(self, metering_response) -> None:
         """Assert no record has a boolean-typed percent value.
 
         This is critical because in Python ``bool`` is a subclass of
         ``int``, so ``isinstance(True, int)`` returns ``True``.  An
         explicit boolean check must precede any integer check.
         """
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
         records = _extract_records(response)
 
         for i, record in enumerate(records):
@@ -250,13 +229,9 @@ class TestPercentCompleteRange:
     """Validate that numeric ``percent_complete`` values lie within the
     inclusive range ``[0.0, 100.0]``.  ``None`` is acceptable and skipped."""
 
-    def test_percent_complete_range(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_percent_complete_range(self, metering_response) -> None:
         """Assert every numeric value is within [0.0, 100.0]."""
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
         records = _extract_records(response)
 
         assert len(records) > 0, (
@@ -273,13 +248,9 @@ class TestPercentCompleteRange:
                         f"is out of range [0.0, 100.0]"
                     )
 
-    def test_percent_complete_not_negative(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_percent_complete_not_negative(self, metering_response) -> None:
         """Assert no record has a negative percent value."""
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
         records = _extract_records(response)
 
         for i, record in enumerate(records):
@@ -295,13 +266,9 @@ class TestPercentCompleteRange:
                     f"is negative"
                 )
 
-    def test_percent_complete_not_over_100(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_percent_complete_not_over_100(self, metering_response) -> None:
         """Assert no record has a percent value exceeding 100."""
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
         records = _extract_records(response)
 
         for i, record in enumerate(records):
@@ -330,18 +297,14 @@ class TestCompletedRunValue:
     The AAP states: *"Completed runs: expected value between 0–100"*.
     """
 
-    def test_completed_run_value(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_completed_run_value(self, metering_response) -> None:
         """Assert all non-null values are within [0.0, 100.0].
 
         This satisfies the AAP requirement for completed-run verification.
         At least one record with a non-null value is expected when the
         project has historical runs.
         """
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
         records = _extract_records(response)
 
         assert len(records) > 0, (
@@ -368,17 +331,13 @@ class TestCompletedRunValue:
             # All records have null values — acceptable but noteworthy.
             pass
 
-    def test_metering_records_contain_data(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_metering_records_contain_data(self, metering_response) -> None:
         """Assert the endpoint returns at least one metering record.
 
         Also verifies that at least one record has a non-null
         ``percent_complete`` value when test data exists.
         """
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
         records = _extract_records(response)
 
         assert len(records) > 0, (
@@ -415,13 +374,9 @@ class TestMeteringResponseStructure:
     proper dictionaries.
     """
 
-    def test_metering_response_is_valid(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_metering_response_is_valid(self, metering_response) -> None:
         """Assert the response is not None and is a valid JSON type."""
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
 
         assert response is not None, (
             "GET /runs/metering returned None — expected a JSON response"
@@ -431,11 +386,7 @@ class TestMeteringResponseStructure:
             f"{type(response).__name__} — expected list or dict"
         )
 
-    def test_metering_records_are_dicts(
-        self,
-        api_client: BlitzyAPIClient,
-        project_id: str,
-    ) -> None:
+    def test_metering_records_are_dicts(self, metering_response) -> None:
         """Assert every extracted record is a dictionary.
 
         Also verifies that the raw response can be parsed into
@@ -443,7 +394,7 @@ class TestMeteringResponseStructure:
         :func:`~src.models.parse_metering_response`, ensuring
         schema compatibility with the Pydantic response models.
         """
-        response = api_client.get_runs_metering(project_id)
+        response = metering_response
         records = _extract_records(response)
 
         for i, record in enumerate(records):
