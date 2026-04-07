@@ -102,7 +102,7 @@ class BlitzyAPIClient:
 
     def get_runs_metering(
         self, project_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> Any:
         """Fetch metering data for multiple code-generation runs.
 
         Issues ``GET /runs/metering?projectId=<id>`` and returns the parsed
@@ -113,7 +113,7 @@ class BlitzyAPIClient:
                 to ``settings.project_id``.
 
         Returns:
-            Parsed JSON response body as a dictionary.  The response is
+            Parsed JSON response body (list or dict).  The response is
             expected to contain an array of metering records, each with a
             ``percent_complete`` (or ``percentComplete``) field.
 
