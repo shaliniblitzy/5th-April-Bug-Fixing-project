@@ -47,6 +47,7 @@ Usage:
     ok, msg = validate_percent_complete_in_response(response_json, "runs_metering")
 """
 
+import math
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 
@@ -272,6 +273,14 @@ def validate_percent_value(value: Any) -> Tuple[bool, str]:
             False,
             f"Expected numeric or null, got {type(value).__name__}: {value!r}",
         )
+
+    # ------------------------------------------------------------------
+    # Rule 3b: Reject NaN — IEEE 754 NaN is not a meaningful percentage.
+    # NaN comparisons (< and >) always return False, so NaN would silently
+    # pass the range checks below.  We must catch it explicitly here.
+    # ------------------------------------------------------------------
+    if isinstance(value, float) and math.isnan(value):
+        return (False, "Expected numeric value, got NaN")
 
     # ------------------------------------------------------------------
     # Rule 4: Range lower bound — value must be >= 0.0.

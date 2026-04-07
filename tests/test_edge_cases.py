@@ -277,6 +277,28 @@ class TestInvalidTypes:
             f"Error message should indicate got bool, got: {error_msg!r}"
         )
 
+    def test_value_not_nan(self) -> None:
+        """NaN (Not a Number) must be rejected as an invalid value.
+
+        IEEE 754 NaN comparisons with ``<`` and ``>`` always return ``False``,
+        which means NaN would silently pass range boundary checks if not
+        explicitly guarded.  The validator must detect NaN and reject it
+        with a clear error message.
+
+        Per the AAP (Section 0.7.1), only numeric values within ``[0.0, 100.0]``
+        and ``None`` are valid.  NaN is not a meaningful percentage value and
+        must be treated as invalid.
+        """
+        nan_value = float("nan")
+        is_valid, error_msg = validate_percent_value(nan_value)
+        assert is_valid is False, (
+            "validate_percent_value(float('nan')) should reject NaN values — "
+            "NaN is not a meaningful percent_complete value"
+        )
+        assert "NaN" in error_msg, (
+            f"Error message should mention 'NaN', got: {error_msg!r}"
+        )
+
     def test_value_not_list_or_dict(self) -> None:
         """Collection types (``list`` and ``dict``) must be rejected.
 

@@ -62,18 +62,25 @@ def settings() -> Settings:
     is validated to ensure all required values are present before any API
     call is attempted.
 
+    If validation fails (e.g., required environment variables are not set),
+    the fixture calls ``pytest.skip()`` so that all integration tests that
+    depend on a configured API client are gracefully skipped rather than
+    producing ERROR status.  This implements the graceful degradation
+    strategy described in this module's docstring.
+
     Scope:
         Session — a single ``Settings`` object is shared across every test.
 
     Returns:
         A fully validated :class:`~src.config.Settings` instance.
-
-    Raises:
-        ValueError: If any required configuration variable is missing or
-            invalid (propagated from :meth:`Settings.validate`).
     """
     config: Settings = get_settings()
-    config.validate()
+    try:
+        config.validate()
+    except ValueError as exc:
+        pytest.skip(
+            f"{exc} — skipping integration tests"
+        )
     return config
 
 
